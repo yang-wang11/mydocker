@@ -19,7 +19,7 @@ after that all done, build this project to a binary called "mydocker" like proje
 
 ## overview
 
-![commands](.\res\commands.jpg)
+![commands](/res/commands.jpg)
 
 ## image
 
