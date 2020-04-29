@@ -1,0 +1,96 @@
+package container
+
+import (
+	"docker/mydocker/cgroups"
+	"docker/mydocker/network"
+	. "docker/mydocker/util"
+	log "github.com/Sirupsen/logrus"
+	"strconv"
+	"strings"
+	"time"
+)
+
+func Run(con *Container) {
+
+	// prepare aufs, namespace ..
+	child, writePipe := NewProcess(con)
+	if child == nil {
+		UpdateContainerStatus(con, ContainerFailed)
+		log.Warnf("New process init failed. ")
+		return
+	}
+
+	// start to run command
+	if err := child.Start(); err != nil {
+		UpdateContainerStatus(con, ContainerFailed)
+		return
+	} else {
+		con.Pid = strconv.Itoa(child.Process.Pid)
+		log.Debugf("get pid: %v. ", child.Process.Pid)
+	}
+
+	// setup cgroup for child
+	cgroupManager := cgroups.NewCgroupManager("mydocker-cgroup")
+	defer cgroupManager.Destroy()
+	cgroupManager.Set(con.ResConfig)
+	cgroupManager.Apply(child.Process.Pid)
+
+	// setup network
+	if err := network.Connect(con); err != nil {
+		log.Errorf("connect to network %s failed, %v", con.Network, err)
+		return
+	}
+
+	// send command
+	writePipe.WriteString(con.Command)
+	writePipe.Close()
+
+	// persistent container info
+	PersistContainerInfo(con)
+
+	// check child thread
+	if err := CheckPidIsRunning(child.Process.Pid); err != nil {
+		UpdateContainerStatus(con, ContainerStopped)
+	} else {
+		UpdateContainerStatus(con, ContainerRunning)
+	}
+
+	if con.TtyMode {
+		child.Wait()
+		UpdateContainerStatus(con, ContainerStopped)
+	} else {
+		time.Sleep(1 * time.Second)
+	}
+
+	log.Debugln("main process exit.")
+
+}
+
+func volumeMapSpliter(volumeMap string)(match bool, ParentPath, ContainerPath string){
+	// init
+	ParentPath, ContainerPath, match = "", "", false
+	// split
+	volumeArr := strings.Split(volumeMap, ":")
+	if len(volumeArr) == 2  {
+		ParentPath    = volumeArr[0]
+		ContainerPath = volumeArr[1]
+		if ParentPath != "" && ContainerPath != "" { match = true }
+	}
+	return
+}
+
+func CheckContainer(ContainerName string) bool {
+
+	// check container name
+	foundContainer := false
+
+	for _, con := range ListContainers(false) {
+		if con == ContainerName {
+			foundContainer = true
+			break
+		}
+	}
+
+	return foundContainer
+
+}
