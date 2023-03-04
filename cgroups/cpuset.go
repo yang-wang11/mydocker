@@ -7,7 +7,7 @@ import (
 	"path"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type CpusetSubSystem struct {
@@ -61,5 +61,5 @@ func (s *CpusetSubSystem) Apply(cgroupPath string, pid int) error {
 }
 
 func (s *CpusetSubSystem) Name() subSysType {
-	return SUBSYSCPUSET
+  return SUBSYSCPUSET
 }

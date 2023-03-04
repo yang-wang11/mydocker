@@ -7,7 +7,7 @@ import (
 	"path"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type MemorySubSystem struct {

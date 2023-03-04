@@ -1,8 +1,6 @@
 package network
 
-import (
-	. "docker/mydocker/util"
-)
+import "github.com/yang-wang11/mydocker/common"
 
 type NetworkDriver interface {
 	Name() string
@@ -12,21 +10,16 @@ type NetworkDriver interface {
 	Disconnect(network Network, endpoint *Endpoint) error
 }
 
-
 func ValidNetworkDriver(driverType string) bool {
 
-	driver := DriveType(driverType)
+	driver := common.DriveType(driverType)
 
 	switch driver {
 
-		case BridgeDrive :
+	case common.BridgeDrive:
+		return true
 
-			return true
-
-		default:
-
-			return false
-
+	default:
+		return false
 	}
-
 }

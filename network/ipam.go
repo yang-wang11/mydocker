@@ -1,9 +1,9 @@
 package network
 
 import (
-	. "docker/mydocker/util"
 	"encoding/json"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/yang-wang11/mydocker/common"
 	"io/ioutil"
 	"net"
 	"os"
@@ -24,7 +24,7 @@ func NewIPAM() *IPAM {
 	return &IPAM{
 		Mux:        &sync.RWMutex{},
 		SubnetPath: defIPAMConf,
-		Subnets:    &subs ,
+		Subnets:    &subs,
 	}
 
 }
@@ -32,28 +32,28 @@ func NewIPAM() *IPAM {
 func (ipam *IPAM) init() error {
 
 	// create if not exist
-	if !PathExists(defIPAMPath) {
+	if !common.PathExists(defIPAMPath) {
 		if err := os.MkdirAll(defIPAMPath, 0644); err != nil {
-			return NewError("create folder %s failed, %v", defIPAMPath, err)
+			return common.NewError("create folder %s failed, %v", defIPAMPath, err)
 		}
 	}
 
-  return nil
+	return nil
 
 }
 
 // load ipam from config file
 func (ipam *IPAM) load() error {
 
-	if !PathExists(ipam.SubnetPath) {
-		return NewError("ipam load: %s didn't exist", ipam.SubnetPath)
+	if !common.PathExists(ipam.SubnetPath) {
+		return common.NewError("ipam load: %s didn't exist", ipam.SubnetPath)
 	}
 
 	ipam.Mux.Lock()
 	// read data from subnet.json
 	subnetJson, err := ioutil.ReadFile(ipam.SubnetPath)
 	if err != nil {
-		return NewError("read data from subnet.json failed, err %v", err)
+		return common.NewError("read data from subnet.json failed, err %v", err)
 	} else {
 		//log.Debugf("read from subnet.json: %s", string(subnetJson))
 	}
@@ -62,7 +62,7 @@ func (ipam *IPAM) load() error {
 	// unmarshal subnet
 	err = json.Unmarshal(subnetJson, ipam.Subnets)
 	if err != nil {
-		return NewError("load: Unmarshal failed, %v", err)
+		return common.NewError("load: Unmarshal failed, %v", err)
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func (ipam *IPAM) Dump(iSubnet *map[string]string) error {
 
 	// save data to subnet.json
 	ipam.Mux.Lock()
-	ipamFile, err := os.OpenFile(ipam.SubnetPath, os.O_CREATE| os.O_TRUNC| os.O_WRONLY, 0644)
+	ipamFile, err := os.OpenFile(ipam.SubnetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	defer ipamFile.Close()
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (ipam *IPAM) InitSubnet(subnetStr string) *net.IPNet {
 	// store new subnet config if not in ipam.Subnets
 	if _, exist := (*ipam.Subnets)[subnetStr]; !exist {
 		// init subnet
-		(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(totalSize-actualSize))  // 2^
+		(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(totalSize-actualSize)) // 2^
 		// store
 		ipam.Dump(ipam.Subnets)
 		return subnet
@@ -177,9 +177,9 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ipaddr *net.IP) error {
 
 	c := 0
 	releaseIP := ipaddr.To4()
-	releaseIP[3] -= 1  // ip start from xx.xx.xx.1
+	releaseIP[3] -= 1 // ip start from xx.xx.xx.1
 	for t := uint(4); t > 0; t -= 1 {
-		c += int(releaseIP[t-1]-subnet.IP[t-1]) << ((4 - t) * 8)  // current ip - base ip -> bits string
+		c += int(releaseIP[t-1]-subnet.IP[t-1]) << ((4 - t) * 8) // current ip - base ip -> bits string
 	}
 
 	// set bit to available

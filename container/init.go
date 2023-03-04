@@ -2,7 +2,8 @@ package container
 
 import (
 	"fmt"
-	"io/ioutil"
+	"github.com/yang-wang11/mydocker/common"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -10,8 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	. "docker/mydocker/util"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 //const ShPath string = "/bin/sh"
@@ -20,13 +20,13 @@ func RunContainerInitProcess(containerName string) error {
 
 	cmdArray := readUserCommand()
 	if len(cmdArray) == 0 {
-		return NewError("no command found!!!")
+		return common.NewError("no command found!!!")
 	} else {
 		RuntimeLogger.Debugf("user command: %v", cmdArray)
 	}
 
 	if err := setUpMount(containerName); err != nil {
-		return NewError("container init mount failed!")
+		return common.NewError("container init mount failed!")
 	}
 
 	SetEnvPATH()
@@ -34,7 +34,7 @@ func RunContainerInitProcess(containerName string) error {
 	// check command
 	Command, err := exec.LookPath(cmdArray[0])
 	if err != nil {
-		return NewError("command '%s' not found", cmdArray[0])
+		return common.NewError("command '%s' not found", cmdArray[0])
 	} else {
 		RuntimeLogger.Debugf("command %s found", Command)
 	}
@@ -49,7 +49,7 @@ func RunContainerInitProcess(containerName string) error {
 
 }
 
-func NewProcess(con *Container) (*exec.Cmd, *os.File) {
+func NewProcess(con *common.Container) (*exec.Cmd, *os.File) {
 
 	readPipe, writePipe, err := os.Pipe()
 	if err != nil {
@@ -87,7 +87,7 @@ func NewProcess(con *Container) (*exec.Cmd, *os.File) {
 	}
 
 	// if enable -it
-	var fp *os.File ;
+	var fp *os.File
 
 	if con.TtyMode {
 
@@ -102,12 +102,12 @@ func NewProcess(con *Container) (*exec.Cmd, *os.File) {
 		cmd.Stdin = os.Stdin
 
 		// redirect stdout to log file
-		fp = FeedContainerLogPointer(con);
+		fp = FeedContainerLogPointer(con)
 		if fp != nil {
 			log.Debugf("redirect log to file pointer successfully. %v", fp)
 			//_, err = io.WriteString(fp, "tester")
 			//if err != nil {
-			//	log.Errorf("write failed %v", err)
+			//  log.Errorf("write failed %v", err)
 			//}
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = fp
@@ -151,7 +151,7 @@ func SetEnvPATH() {
 func readUserCommand() []string {
 	// Stdin = 0  Stdout = 1  Stderr = 2   3(append): readpipe
 	pipe := os.NewFile(uintptr(3), "pipe")
-	msg, err := ioutil.ReadAll(pipe)
+	msg, err := io.ReadAll(pipe)
 	if err != nil {
 		log.Errorf("init read pipe error %v", err)
 		return nil
@@ -167,14 +167,14 @@ func setUpMount(containerName string) error {
 	// get current path
 	pwd, err := os.Getwd()
 	if err != nil {
-		return NewError("Get current location error %v", err)
+		return common.NewError("Get current location error %v", err)
 	} else {
 		//RuntimeLogger.Debugf("Current location is %s", pwd)
 	}
 
 	// pivot_root命令用于将根目录替换为指定目录
 	if err = pivotRoot(pwd, containerName); err != nil {
-		return NewError("pivotRoot failed, err: %v", err)
+		return common.NewError("pivotRoot failed, err: %v", err)
 	}
 
 	return nil
@@ -186,9 +186,9 @@ func pivotRoot(root, containerName string) error {
 	var err error
 
 	/**
-	 为了使当前root的老 root 和新 root 不在同一个文件系统下，我们把root重新mount了一次
-	 bind mount是把相同的内容换了一个挂载点的挂载方法
-		mount -o bind root root
+	  为了使当前root的老 root 和新 root 不在同一个文件系统下，我们把root重新mount了一次
+	  bind mount是把相同的内容换了一个挂载点的挂载方法
+	   mount -o bind root root
 	*/
 	if err = syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
 		log.Errorf("Mount rootfs to itself failed, %v. ", err)
@@ -208,7 +208,7 @@ func pivotRoot(root, containerName string) error {
 	// systemd 加入linux之后, mount namespace 就变成 shared by default, 所以你必须显示声明要这个新的mount namespace独立。
 	// 首先下载busybox镜像，然后接下放到/root/busybox下
 	if err = syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
-		return NewError("mount / failed, %v", err.Error())
+		return common.NewError("mount / failed, %v", err.Error())
 	} else {
 		log.Debug("mount / successfully.")
 	}
@@ -221,14 +221,14 @@ func pivotRoot(root, containerName string) error {
 	// mount host proc to container
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 	if err := syscall.Mount("proc", path.Join(containerBaseMnt, "/proc"), "proc", uintptr(defaultMountFlags), ""); err != nil {
-		return NewError("mount proc %s failed, %v", path.Join(containerBaseMnt, "/proc"), err.Error())
+		return common.NewError("mount proc %s failed, %v", path.Join(containerBaseMnt, "/proc"), err.Error())
 	} else {
 		log.Debug("mount proc successfully.")
 	}
 
 	// tmpfs is one of ram filesystem, use ram/swap to store data
 	if err := syscall.Mount("tmpfs", path.Join(containerBaseMnt, "/dev"), "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
-		return NewError("mount tmpfs %s failed, %v", path.Join(containerBaseMnt, "/dev"), err.Error())
+		return common.NewError("mount tmpfs %s failed, %v", path.Join(containerBaseMnt, "/dev"), err.Error())
 	} else {
 		log.Debug("mount tmpfs successfully.")
 	}
@@ -253,25 +253,23 @@ func pivotRoot(root, containerName string) error {
 
 	// 删除临时文件夹
 	return os.Remove(pivotDir)
-
 }
 
 func InitSystemFolder() error {
 
 	// init image folder
-	if !PathExists(ImageBaseFolder) {
+	if !common.PathExists(ImageBaseFolder) {
 		if err := os.MkdirAll(ImageBaseFolder, 0644); err != nil {
-			return NewError("init folder %s failed. ", ImageBaseFolder)
+			return common.NewError("failed to create the image's folder.", ImageBaseFolder)
 		}
 	}
 
 	// init container folder
-	if !PathExists(ContainerBaseFolder) {
+	if !common.PathExists(ContainerBaseFolder) {
 		if err := os.MkdirAll(ContainerBaseFolder, 0644); err != nil {
-			return NewError("init folder %s failed. ", ContainerBaseFolder)
+			return common.NewError("failed to create the container's folder.", ContainerBaseFolder)
 		}
 	}
 
 	return nil
-
 }

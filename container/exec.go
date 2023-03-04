@@ -10,54 +10,54 @@ package container
 
 __attribute__((constructor)) void injectProcess(void) {
 //void injectProcess(void) {
-	char *mydocker_pid;
-	mydocker_pid = getenv("mydocker_pid");
-	if (mydocker_pid) {
-		//fprintf(stdout, "got mydocker_pid=%s\n", mydocker_pid);
-	} else {
-		fprintf(stdout, "missing mydocker_pid env skip");
-		return;
-	}
-	char *mydocker_cmd;
-	mydocker_cmd = getenv("mydocker_cmd");
-	if (mydocker_cmd) {
-		//fprintf(stdout, "got mydocker_cmd=%s\n", mydocker_cmd);
-	} else {
-		fprintf(stdout, "missing mydocker_cmd env skip");
-		return;
-	}
-	int i;
-	char nspath[1024];
-	char *namespaces[] = { "ipc", "uts", "net", "pid", "mnt" };
+  char *mydocker_pid;
+  mydocker_pid = getenv("mydocker_pid");
+  if (mydocker_pid) {
+    //fprintf(stdout, "got mydocker_pid=%s\n", mydocker_pid);
+  } else {
+    fprintf(stdout, "missing mydocker_pid env skip");
+    return;
+  }
+  char *mydocker_cmd;
+  mydocker_cmd = getenv("mydocker_cmd");
+  if (mydocker_cmd) {
+    //fprintf(stdout, "got mydocker_cmd=%s\n", mydocker_cmd);
+  } else {
+    fprintf(stdout, "missing mydocker_cmd env skip");
+    return;
+  }
+  int i;
+  char nspath[1024];
+  char *namespaces[] = { "ipc", "uts", "net", "pid", "mnt" };
 
-	for (i=0; i<5; i++) {
-		sprintf(nspath, "/proc/%s/ns/%s", mydocker_pid, namespaces[i]);
-		int fd = open(nspath, O_RDONLY);
+  for (i=0; i<5; i++) {
+    sprintf(nspath, "/proc/%s/ns/%s", mydocker_pid, namespaces[i]);
+    int fd = open(nspath, O_RDONLY);
 
-		if (setns(fd, 0) == -1) {
-			fprintf(stderr, "setns on %s namespace failed: %s\n", namespaces[i], strerror(errno));
-		} else {
-			//fprintf(stdout, "setns on %s namespace succeeded\n", namespaces[i]);
-		}
-		close(fd);
-	}
-	int res = system(mydocker_cmd);
-	exit(0);
-	return;
+    if (setns(fd, 0) == -1) {
+      fprintf(stderr, "setns on %s namespace failed: %s\n", namespaces[i], strerror(errno));
+    } else {
+      //fprintf(stdout, "setns on %s namespace succeeded\n", namespaces[i]);
+    }
+    close(fd);
+  }
+  int res = system(mydocker_cmd);
+  exit(0);
+  return;
 }
 */
 import "C"
 
 import (
-	. "docker/mydocker/util"
 	"encoding/json"
 	"fmt"
+	"github.com/yang-wang11/mydocker/common"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -78,11 +78,11 @@ func ExecContainer(containerName string, command string) {
 	SetEnvPATH()
 
 	// call
-	Cmder("/proc/self/exe", true, GetEnvByPid(con.Pid), "exec")
+	common.Cmder("/proc/self/exe", true, GetEnvByPid(con.Pid), "exec")
 
 }
 
-func GetContinerInfoByName(containerName string) (con Container) {
+func GetContinerInfoByName(containerName string) (con common.Container) {
 
 	// read container content from file
 	containerPath := path.Join(ContainerRuntimeBaseFolder, containerName)

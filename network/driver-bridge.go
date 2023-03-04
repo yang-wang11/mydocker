@@ -1,10 +1,10 @@
 package network
 
 import (
-	. "docker/mydocker/util"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"github.com/yang-wang11/mydocker/common"
 	"net"
 	"strings"
 	"time"
@@ -72,11 +72,11 @@ func (d *BridgeNetworkDriver) Connect(network *Network, endpoint *Endpoint) erro
 	}
 
 	if err = netlink.LinkAdd(&endpoint.Device); err != nil {
-		return NewError("add Endpoint Device failed, %v", err)
+		return common.NewError("add Endpoint Device failed, %v", err)
 	}
 
 	if err = netlink.LinkSetUp(&endpoint.Device); err != nil {
-		return NewError("set Endpoint Device up failed, %v", err)
+		return common.NewError("set Endpoint Device up failed, %v", err)
 	}
 
 	return nil
@@ -93,7 +93,7 @@ func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 	bridgeName := n.Name
 	// ip link add xxxx
 	if err := createBridgeInterface(bridgeName); err != nil {
-		return NewError("add bridge %s failed, %v", bridgeName, err)
+		return common.NewError("add bridge %s failed, %v", bridgeName, err)
 	} else {
 		log.Debugf("receive network info %v", *n)
 	}
@@ -102,18 +102,18 @@ func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 	gatewayIP := *n.IpRange
 	gatewayIP.IP = n.IpRange.IP
 	if err := setInterfaceIP(bridgeName, gatewayIP.String()); err != nil {
-		return NewError("assigning address %v on bridge %s failed, %v", gatewayIP, bridgeName, err)
+		return common.NewError("assigning address %v on bridge %s failed, %v", gatewayIP, bridgeName, err)
 	}
 
 	// enable interface(ip link set xxx up)
 	if err := setInterfaceUP(bridgeName); err != nil {
-		return NewError("set bridge up %s failed, %v", bridgeName, err)
+		return common.NewError("set bridge up %s failed, %v", bridgeName, err)
 	}
 
 	// Setup iptables(SNAT)
 	log.Infof("start to set IPtables, bridgeName %s, IPRange %s \n", bridgeName, n.IpRange)
 	if err := setupIPTables(bridgeName, n.IpRange); err != nil {
-		return NewError("set iptables for %s failed, %v", bridgeName, err)
+		return common.NewError("set iptables for %s failed, %v", bridgeName, err)
 	}
 
 	return nil
@@ -142,7 +142,7 @@ func createBridgeInterface(bridgeName string) error {
 	// return if bridge exist
 	_, err := net.InterfaceByName(bridgeName)
 	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
-		return NewError("bridge %s not found", bridgeName)
+		return common.NewError("bridge %s not found", bridgeName)
 	}
 
 	// create device(ip link add xxxx)
@@ -151,7 +151,7 @@ func createBridgeInterface(bridgeName string) error {
 
 	br := &netlink.Bridge{LinkAttrs: la}
 	if err := netlink.LinkAdd(br); err != nil {
-		return NewError("create bridge %s failed, %v", bridgeName, err)
+		return common.NewError("create bridge %s failed, %v", bridgeName, err)
 	}
 	return nil
 
@@ -186,14 +186,14 @@ func setInterfaceIP(name string, rawIP string) error {
 		}
 	}
 	if err != nil {
-		return NewError("Run [ ip link ] failed, %v", err)
+		return common.NewError("Run [ ip link ] failed, %v", err)
 	} else {
 		log.Debugf("Run [ ip link ] successfully, ip %v", rawIP)
 	}
 
 	ipNet, err := netlink.ParseIPNet(rawIP)
 	if err != nil {
-		return NewError("ParseIPNet %s failed, %v", rawIP, err)
+		return common.NewError("ParseIPNet %s failed, %v", rawIP, err)
 	} else {
 		log.Debugf("ParseIPNet %s successfully.", rawIP)
 	}
@@ -207,7 +207,6 @@ func setInterfaceIP(name string, rawIP string) error {
 
 	// ip addr add xxx
 	return netlink.AddrAdd(iface, addr)
-
 }
 
 // set iptables
@@ -218,15 +217,14 @@ func setupIPTables(bridgeName string, subnet *net.IPNet) error {
 	//iptablesCmd := fmt.Sprintf("-t nat -I POSTROUTING -p tcp -d %s --dport %s -j SNAT --to 192.168.66.20", subnet.String(), bridgeName)
 	iptablesCmd := fmt.Sprintf("-t nat -I POSTROUTING -s %s ! -o %s -j MASQUERADE", subnet.String(), bridgeName)
 
-	if ret := Cmder("iptables", true, nil, strings.Split(iptablesCmd, " ")...); !ret {
+	if ret := common.Cmder("iptables", true, nil, strings.Split(iptablesCmd, " ")...); !ret {
 		err = fmt.Errorf("setup iptables failed")
 	}
 
 	return err
-
 }
 
 // due to length limit
 func GetVethName(endpointId string) string {
-	return endpointId[:5] ;
+	return endpointId[:5]
 }

@@ -1,11 +1,10 @@
 package main
 
 import (
-	network "docker/mydocker/network"
-	. "docker/mydocker/util"
+	"github.com/yang-wang11/mydocker/network"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -13,7 +12,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "mydocker"
-	app.Usage = "this project is a simple container runtime implementation."
+	app.Usage = "A simple container runtime implementation."
 	app.Version = "1.0.0"
 
 	app.Commands = []cli.Command{
@@ -27,16 +26,14 @@ func main() {
 		// log as JSON instead of the default ASCII formatter.
 		log.SetFormatter(&log.JSONFormatter{})
 		log.SetOutput(os.Stdout)
-		log.SetLevel(GlobalLogLevel)
+		log.SetLevel(log.DebugLevel)
 
 		network.Initbridge()
 
 		return nil
-
 	}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-
 }

@@ -1,28 +1,28 @@
 package container
 
 import (
-	"docker/mydocker/cgroups"
-	"docker/mydocker/network"
-	. "docker/mydocker/util"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/yang-wang11/mydocker/cgroups"
+	"github.com/yang-wang11/mydocker/common"
+	"github.com/yang-wang11/mydocker/network"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func Run(con *Container) {
+func Run(con *common.Container) {
 
 	// prepare aufs, namespace ..
 	child, writePipe := NewProcess(con)
 	if child == nil {
-		UpdateContainerStatus(con, ContainerFailed)
+		UpdateContainerStatus(con, common.ContainerFailed)
 		log.Warnf("New process init failed. ")
 		return
 	}
 
 	// start to run command
 	if err := child.Start(); err != nil {
-		UpdateContainerStatus(con, ContainerFailed)
+		UpdateContainerStatus(con, common.ContainerFailed)
 		return
 	} else {
 		con.Pid = strconv.Itoa(child.Process.Pid)
@@ -49,32 +49,33 @@ func Run(con *Container) {
 	PersistContainerInfo(con)
 
 	// check child thread
-	if err := CheckPidIsRunning(child.Process.Pid); err != nil {
-		UpdateContainerStatus(con, ContainerStopped)
+	if err := common.CheckPidIsRunning(child.Process.Pid); err != nil {
+		UpdateContainerStatus(con, common.ContainerStopped)
 	} else {
-		UpdateContainerStatus(con, ContainerRunning)
+		UpdateContainerStatus(con, common.ContainerRunning)
 	}
 
 	if con.TtyMode {
 		child.Wait()
-		UpdateContainerStatus(con, ContainerStopped)
+		UpdateContainerStatus(con, common.ContainerStopped)
 	} else {
 		time.Sleep(1 * time.Second)
 	}
 
 	log.Debugln("main process exit.")
-
 }
 
-func volumeMapSpliter(volumeMap string)(match bool, ParentPath, ContainerPath string){
+func volumeMapSpliter(volumeMap string) (match bool, ParentPath, ContainerPath string) {
 	// init
 	ParentPath, ContainerPath, match = "", "", false
 	// split
 	volumeArr := strings.Split(volumeMap, ":")
-	if len(volumeArr) == 2  {
-		ParentPath    = volumeArr[0]
+	if len(volumeArr) == 2 {
+		ParentPath = volumeArr[0]
 		ContainerPath = volumeArr[1]
-		if ParentPath != "" && ContainerPath != "" { match = true }
+		if ParentPath != "" && ContainerPath != "" {
+			match = true
+		}
 	}
 	return
 }
@@ -92,5 +93,4 @@ func CheckContainer(ContainerName string) bool {
 	}
 
 	return foundContainer
-
 }

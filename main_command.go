@@ -1,13 +1,14 @@
 package main
 
 import (
-	. "docker/mydocker/container"
-	. "docker/mydocker/network"
-	. "docker/mydocker/util"
 	"fmt"
+	"github.com/yang-wang11/mydocker/common"
+	"github.com/yang-wang11/mydocker/container"
+	"github.com/yang-wang11/mydocker/network"
+	"path"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -29,20 +30,18 @@ var containersCommand = cli.Command{
 
 				var err error
 
-				log.Debugf("start to invoke init.")
-
 				// container name
 				containerName := context.String("name")
 
-				// init logger
-				if containerName != "" {
-					RuntimeLogger = GetPersistentLogger(containerName)
-					RuntimeLogger.Println("init setup persistent logger")
-				}
+				log.Debugf("start to init.")
 
-				if err = RunContainerInitProcess(containerName); err != nil {
-					RuntimeLogger.Printf("run RunContainerInitProcess failed, %v", err)
-					UpdateContainerStatusByName(containerName, ContainerFailed)
+				// runtime logger
+				containerLogName := path.Join(containerName, common.ContainerLogName)
+				common.RuntimeLogger = common.GetPersistentLogger(common.RootDir, containerLogName, log.DebugLevel)
+
+				if err = container.RunContainerInitProcess(containerName); err != nil {
+					common.RuntimeLogger.Printf("run RunContainerInitProcess failed, %v", err)
+					container.UpdateContainerStatusByName(containerName, common.ContainerFailed)
 				}
 
 				return err
@@ -106,11 +105,11 @@ var containersCommand = cli.Command{
 
 				imageName := context.String("i")
 				if imageName == "" {
-					return NewError("image name not set")
+					return common.NewError("image name not set")
 				}
 
-				if !CheckImage(imageName) {
-					return NewError("image %s not support", imageName)
+				if !container.CheckImage(imageName) {
+					return common.NewError("image %s not support", imageName)
 				} else {
 					log.Debugf("start to use image %s", imageName)
 				}
@@ -125,8 +124,8 @@ var containersCommand = cli.Command{
 				// container name
 				containerName := context.String("name")
 				// check container
-				if CheckContainer(containerName) {
-					return NewError("container %s already exist", containerName)
+				if container.CheckContainer(containerName) {
+					return common.NewError("container %s already exist", containerName)
 				}
 
 				// env
@@ -135,7 +134,7 @@ var containersCommand = cli.Command{
 				// network
 				network := context.String("net")
 				if network == "" {
-					network = DefNetworkName
+					network = common.DefNetworkName
 				}
 
 				// port map
@@ -152,18 +151,18 @@ var containersCommand = cli.Command{
 
 				// avoid enable both tty and detach mode
 				if detachMode && ttyMode {
-					return NewError("shouldn't set -d and -it together.")
+					return common.NewError("shouldn't set -d and -it together.")
 				}
 
 				// cgroup
-				resConf := &ResourceConfig{
+				resConf := &common.ResourceConfig{
 					MemoryLimit: context.String("m"),
 					CpuSet:      context.String("cpuset"),
 					CpuShare:    context.String("cpushare"),
 				}
 
 				// init container
-				GlobalContainer = NewContainerInfo(
+				newContainer := container.NewContainerInfo(
 					0,
 					imageName,
 					&containerName,
@@ -178,18 +177,19 @@ var containersCommand = cli.Command{
 
 				// init logger
 				if containerName != "" {
-					RuntimeLogger = GetPersistentLogger(containerName)
-					RuntimeLogger.Debugln("run setup persistent logger")
+					// runtime logger
+					containerLogName := path.Join(containerName, common.ContainerLogName)
+					common.RuntimeLogger = common.GetPersistentLogger(common.RootDir, containerLogName, log.DebugLevel)
+					common.RuntimeLogger.Debugln("run setup persistent logger")
 
-					if err := PersistContainerInfo(&GlobalContainer); err != nil {
+					if err := container.PersistContainerInfo(&newContainer); err != nil {
 						log.Errorf("runCommand failed, %v", err)
 					}
 				}
 
-				Run(&GlobalContainer)
+				container.Run(&newContainer)
 
 				return nil
-
 			},
 		},
 
@@ -207,26 +207,26 @@ var containersCommand = cli.Command{
 				log.Debugf("start to invoke commit.")
 				// get container name
 				if len(context.Args()) < 1 {
-					return NewError("container name not set")
+					return common.NewError("container name not set")
 				}
 
 				// check image name
 				imageName := context.String("i")
 				if imageName == "" {
-					return NewError("image name not set")
+					return common.NewError("image name not set")
 				}
 
-				if CheckImage(imageName) {
-					return NewError("image name already exist.")
+				if container.CheckImage(imageName) {
+					return common.NewError("image name already exist.")
 				}
 
 				// check container name
 				ContainerName := context.Args().Get(0)
-				if !CheckContainer(ContainerName) {
-					return NewError("container %s not exist. please check again", ContainerName)
+				if !container.CheckContainer(ContainerName) {
+					return common.NewError("container %s not exist. please check again", ContainerName)
 				}
 
-				CommitContainer(ContainerName, imageName)
+				container.CommitContainer(ContainerName, imageName)
 
 				return nil
 			},
@@ -237,7 +237,7 @@ var containersCommand = cli.Command{
 			Usage: "List containers",
 			Action: func(context *cli.Context) error {
 				log.Debugf("start to invoke ps.")
-				ListContainers(true)
+				container.ListContainers(true)
 				return nil
 			},
 		},
@@ -249,14 +249,14 @@ var containersCommand = cli.Command{
 				log.Debugf("start to invoke log.")
 				// get container name
 				if len(context.Args()) < 1 {
-					return NewError("container name didn't set")
+					return common.NewError("container name didn't set")
 				}
 				// check container name
 				containerName := context.Args().Get(0)
-				if !CheckContainer(containerName) {
-					return NewError("container %s not exist. please check again", containerName)
+				if !container.CheckContainer(containerName) {
+					return common.NewError("container %s not exist. please check again", containerName)
 				}
-				GrabContainerLog(containerName)
+				container.GrabContainerLog(containerName)
 				return nil
 			},
 		},
@@ -281,7 +281,7 @@ var containersCommand = cli.Command{
 
 				// get container name
 				if len(context.Args()) < 1 && !delAll {
-					return NewError("container name didn't set")
+					return common.NewError("container name didn't set")
 				}
 
 				// if only delete on container then check container name
@@ -289,17 +289,17 @@ var containersCommand = cli.Command{
 					// get container name from first variable
 					containerName = context.Args().Get(0)
 					// check!!
-					if !CheckContainer(containerName) {
-						return NewError("container %s not exist. please check again", containerName)
+					if !container.CheckContainer(containerName) {
+						return common.NewError("container %s not exist. please check again", containerName)
 					}
-					if GetContinerInfoByName(containerName).Status == ContainerRunning {
+					if container.GetContinerInfoByName(containerName).Status == common.ContainerRunning {
 						log.Errorf("Shouldn't delete running container %s", containerName)
 						return nil
 					}
 
 				}
 
-				DeleteContainer(containerName, delAll)
+				container.DeleteContainer(containerName, delAll)
 
 				return nil
 			},
@@ -315,10 +315,10 @@ var containersCommand = cli.Command{
 					return fmt.Errorf("container name didn't set")
 				}
 				containerName := context.Args().Get(0)
-				if GetContinerInfoByName(containerName).Status == ContainerStopped {
-					return NewError("container %s already stopped", containerName)
+				if container.GetContinerInfoByName(containerName).Status == common.ContainerStopped {
+					return common.NewError("container %s already stopped", containerName)
 				}
-				StopContainer(containerName)
+				container.StopContainer(containerName)
 				return nil
 			},
 		},
@@ -331,17 +331,17 @@ var containersCommand = cli.Command{
 
 				// -it/-d command
 				if len(context.Args()) < 2 {
-					return NewError("miss container name & command")
+					return common.NewError("miss container name & command")
 				}
 
 				// check container name
 				containerName := context.Args().Get(0)
-				if !CheckContainer(containerName) {
-					return NewError("container %s not exist. please check again", containerName)
+				if !container.CheckContainer(containerName) {
+					return common.NewError("container %s not exist. please check again", containerName)
 				}
 				command := context.Args().Get(1)
 
-				ExecContainer(containerName, command)
+				container.ExecContainer(containerName, command)
 				return nil
 			},
 		},
@@ -350,7 +350,7 @@ var containersCommand = cli.Command{
 
 var imagesCommand = cli.Command{
 	Name:  "images",
-	Usage: "image commands",
+	Usage: "image management commands",
 	Subcommands: []cli.Command{
 		{
 			Name:  "ls",
@@ -359,11 +359,10 @@ var imagesCommand = cli.Command{
 
 				log.Debugf("start to list images.")
 
-				ListImages(true)
+				container.ListImages(true)
 				return nil
 			},
 		},
-
 		{
 			Name:  "rm",
 			Usage: "remove supported images",
@@ -375,14 +374,14 @@ var imagesCommand = cli.Command{
 			},
 			Action: func(context *cli.Context) error {
 
-				log.Debugf("start to remove image.")
+				log.Debugf("start to remove the image.")
 
 				imageName := context.String("i")
 				if imageName == "" {
-					return NewError("image name not set")
+					return common.NewError("image name is not set")
 				}
 
-				RemoveImages(imageName)
+				container.RemoveImages(imageName)
 				return nil
 			},
 		},
@@ -391,11 +390,11 @@ var imagesCommand = cli.Command{
 
 var networkCommand = cli.Command{
 	Name:  "network",
-	Usage: "network commands",
+	Usage: "network management commands",
 	Subcommands: []cli.Command{
 		{
 			Name:  "create",
-			Usage: "create a container network",
+			Usage: "create a virtual network",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "driver",
@@ -410,14 +409,14 @@ var networkCommand = cli.Command{
 
 				// get network name
 				if len(context.Args()) < 1 {
-					return NewError("network name didn't set")
+					return common.NewError("network name didn't set")
 				}
 				networkName := context.Args()[0]
 
 				// get subnet
 				subnet := context.String("subnet")
 				if subnet == "" {
-					return NewError("subnet didn't set")
+					return common.NewError("subnet didn't set")
 				} else {
 					log.Debugf("subetnet set to %s", subnet)
 				}
@@ -425,16 +424,16 @@ var networkCommand = cli.Command{
 				// get network driver
 				driverType := context.String("driver")
 				if driverType == "" {
-					return NewError("network driver didn't set")
+					return common.NewError("network driver didn't set")
 				}
-				if !ValidNetworkDriver(driverType) {
+				if !network.ValidNetworkDriver(driverType) {
 					log.Errorf("driver %s not support", driverType)
 				}
 
 				// create network
-				err := CreateNetwork(driverType, subnet, networkName)
+				err := network.CreateNetwork(driverType, subnet, networkName)
 				if err != nil {
-					return NewError("create network %s, %+v", networkName, err)
+					return common.NewError("create network %s, %+v", networkName, err)
 				}
 
 				log.Debugf("create network %s successfully.", networkName)
@@ -445,7 +444,7 @@ var networkCommand = cli.Command{
 			Name:  "ls",
 			Usage: "list container network",
 			Action: func(context *cli.Context) error {
-				ListNetwork()
+				network.ListNetwork()
 				return nil
 			},
 		},
@@ -456,13 +455,13 @@ var networkCommand = cli.Command{
 
 				// get network name
 				if len(context.Args()) < 1 {
-					return NewError("network name didn't set")
+					return common.NewError("network name didn't set")
 				}
 				networkName := context.Args()[0]
 
-				err := DeleteNetwork(networkName)
+				err := network.DeleteNetwork(networkName)
 				if err != nil {
-					return NewError("remove network %s, %+v", networkName, err)
+					return common.NewError("remove network %s, %+v", networkName, err)
 				}
 
 				return nil

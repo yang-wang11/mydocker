@@ -1,8 +1,8 @@
 package network
 
 import (
-	. "docker/mydocker/util"
 	"fmt"
+	"github.com/yang-wang11/mydocker/common"
 	"net"
 	"os/exec"
 
@@ -16,7 +16,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type Network struct {
@@ -36,9 +36,9 @@ type Endpoint struct {
 
 func (nw *Network) dump(dumpPath string) error {
 
-	if !PathExists(dumpPath) {
+	if !common.PathExists(dumpPath) {
 		if err := os.MkdirAll(dumpPath, 0644); err != nil {
-			return NewError("Network dump: create folder %s failed, %v", dumpPath, err)
+			return common.NewError("Network dump: create folder %s failed, %v", dumpPath, err)
 		}
 	}
 
@@ -48,19 +48,19 @@ func (nw *Network) dump(dumpPath string) error {
 	// read network setting
 	nwFile, err := os.OpenFile(nwPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return NewError("Network dump: read file %s failed, %v", nwPath, err)
+		return common.NewError("Network dump: read file %s failed, %v", nwPath, err)
 	}
 	defer nwFile.Close()
 
 	// marshal content
 	nwJson, err := json.Marshal(nw)
 	if err != nil {
-		return NewError("Network dump: marshal %s failed, %v", nw.Name, err)
+		return common.NewError("Network dump: marshal %s failed, %v", nw.Name, err)
 	}
 
 	_, err = nwFile.Write(nwJson)
 	if err != nil {
-		return NewError("Network dump: save content to file %s failed, %v", nwPath, err)
+		return common.NewError("Network dump: save content to file %s failed, %v", nwPath, err)
 	}
 	return nil
 
@@ -68,7 +68,7 @@ func (nw *Network) dump(dumpPath string) error {
 
 func (nw *Network) remove(dumpPath string) error {
 
-	if !PathExists(path.Join(dumpPath, nw.Name)) {
+	if !common.PathExists(path.Join(dumpPath, nw.Name)) {
 		return nil
 	} else {
 		return os.RemoveAll(path.Join(dumpPath, nw.Name))
@@ -80,7 +80,7 @@ func (nw *Network) load(dumpPath string) error {
 
 	nwConf, err := os.Open(dumpPath)
 	if err != nil {
-		return NewError("Network load: open file %s failed, %v", dumpPath, err)
+		return common.NewError("Network load: open file %s failed, %v", dumpPath, err)
 	}
 	defer nwConf.Close()
 
@@ -88,12 +88,12 @@ func (nw *Network) load(dumpPath string) error {
 	nwJson := make([]byte, 2000)
 	fLen, err := nwConf.Read(nwJson)
 	if err != nil {
-		return NewError("Network load: read file %s failed, %v", dumpPath, err)
+		return common.NewError("Network load: read file %s failed, %v", dumpPath, err)
 	}
 
 	err = json.Unmarshal(nwJson[:fLen], nw)
 	if err != nil {
-		return NewError("Network load: unmarshal network failed, %v", err)
+		return common.NewError("Network load: unmarshal network failed, %v", err)
 	}
 
 	return nil
@@ -124,7 +124,7 @@ func CreateNetwork(driverType, subnet, name string) error {
 	// use "network driver" to create network
 	drive, ok := Drivers[driverType]
 	if !ok {
-		return NewError("drive type %s not found", driverType)
+		return common.NewError("drive type %s not found", driverType)
 	}
 
 	log.Debugf("cidr.String(): ", cidr.String())
@@ -159,12 +159,12 @@ func DeleteNetwork(networkName string) error {
 
 	nw, ok := Networks[networkName]
 	if !ok {
-		return NewError("No Such Network: %s", networkName)
+		return common.NewError("No Such Network: %s", networkName)
 	}
 
 	// release ip
 	if err := IpAllocator.Release(nw.IpRange, &nw.IpRange.IP); err != nil {
-		return NewError("Error Remove Network gateway ip: %s", err)
+		return common.NewError("Error Remove Network gateway ip: %s", err)
 	}
 
 	// update ipam
@@ -185,10 +185,10 @@ func DeleteNetwork(networkName string) error {
 	// delete network from device
 	driver, ok := Drivers[nw.Driver]
 	if !ok {
-		return NewError("drive type %s not found", nw.Driver)
+		return common.NewError("drive type %s not found", nw.Driver)
 	}
 	if err := driver.Delete(*nw); err != nil {
-		return NewError("Error Remove Network Driver failed, %s", err)
+		return common.NewError("Error Remove Network Driver failed, %s", err)
 	}
 
 	// delete network setting
@@ -196,7 +196,7 @@ func DeleteNetwork(networkName string) error {
 
 }
 
-func enterContainerNetns(enLink *netlink.Link, con *Container) func() {
+func enterContainerNetns(enLink *netlink.Link, con *common.Container) func() {
 
 	// get network-namespace info
 	f, err := os.OpenFile(fmt.Sprintf("/proc/%s/ns/net", con.Pid), os.O_RDONLY, 0)
@@ -234,12 +234,12 @@ func enterContainerNetns(enLink *netlink.Link, con *Container) func() {
 
 }
 
-func configEndpointIpAddressAndRoute(ep *Endpoint, con *Container) error {
+func configEndpointIpAddressAndRoute(ep *Endpoint, con *common.Container) error {
 
 	// get other side of veth
 	peerLink, err := netlink.LinkByName(ep.Device.PeerName)
 	if err != nil {
-		return NewError("config endpoint failed, %v", err)
+		return common.NewError("config endpoint failed, %v", err)
 	}
 
 	// when enterContainerNetns executed, the netns become from host to container
@@ -254,17 +254,17 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, con *Container) error {
 
 	// set ip for veth peer
 	if err = setInterfaceIP(ep.Device.PeerName, interfaceIP.String()); err != nil {
-		return NewError("setInterfaceIP failed, %v,%s", ep.Network, err)
+		return common.NewError("setInterfaceIP failed, %v,%s", ep.Network, err)
 	}
 
 	// set veth peer up
 	if err = setInterfaceUP(ep.Device.PeerName); err != nil {
-		return NewError("setInterfaceUP failed, %s", err)
+		return common.NewError("setInterfaceUP failed, %s", err)
 	}
 
 	// set lo up
 	if err = setInterfaceUP("lo"); err != nil {
-		return NewError("setInterfaceUP failed, %s", err)
+		return common.NewError("setInterfaceUP failed, %s", err)
 	}
 
 	// add route: all network through veth peer
@@ -302,38 +302,38 @@ func configPortMapping(ep *Endpoint) error {
 		//hostIp := ""
 		//addrs, err := net.InterfaceAddrs()
 		//if err != nil {
-		//	return  NewError("get host ip failed")
+		//  return  util.NewError("get host ip failed")
 		//}
 		//for _, address := range addrs {
 		//
-		//	// 检查ip地址判断是否回环地址
-		//	if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-		//		if ipnet.IP.To4() != nil {
-		//			hostIp = ipnet.IP.String()
-		//		}
+		//  // 检查ip地址判断是否回环地址
+		//  if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+		//    if ipnet.IP.To4() != nil {
+		//      hostIp = ipnet.IP.String()
+		//    }
 		//
-		//	}
+		//  }
 		//}
 
 		// execute DNAT
 		iptableDNAT := fmt.Sprintf("-t nat -I PREROUTING -p tcp --dport %s -j DNAT --to-destination %s:%s",
 			hostPort, ep.IPAddress.String(), containerPort)
-		if !Cmder("iptables", true, nil, strings.Split(iptableDNAT, " ")...) {
-			return NewError("invoke iptables DNAT failed")
+		if !common.Cmder("iptables", true, nil, strings.Split(iptableDNAT, " ")...) {
+			return common.NewError("invoke iptables DNAT failed")
 		}
 
 	}
 	return nil
 }
 
-func Connect(con *Container) error {
+func Connect(con *common.Container) error {
 
 	// get network setting
 	netName := con.Network
 
 	network, ok := Networks[netName]
 	if !ok {
-		return NewError("No Such Network %s", netName)
+		return common.NewError("No Such Network %s", netName)
 	} else {
 		log.Debugf("connect to network %v", network)
 	}
@@ -341,7 +341,7 @@ func Connect(con *Container) error {
 	// assign IP for Endpoint
 	ip, err := IpAllocator.Allocate(network.IpRange)
 	if err != nil {
-		return NewError("IpAllocator.Allocate failed, %v", err)
+		return common.NewError("IpAllocator.Allocate failed, %v", err)
 	} else {
 		con.IP = ip.String()
 		log.Debugf("get ip %s for ep, ip range %v, container ip %v", ip, network.IpRange, con.IP)
@@ -355,22 +355,22 @@ func Connect(con *Container) error {
 		PortMapping: con.PortMapping,
 	}
 
-	con.NetworkDevice  = GetVethName(ep.ID)
+	con.NetworkDevice = GetVethName(ep.ID)
 
 	// through driver connect&config to endpoint
 	driver, ok := Drivers[network.Driver]
 	if !ok {
-		return NewError("drive type %s not found", network.Driver)
+		return common.NewError("drive type %s not found", network.Driver)
 	}
 	// connect one side of ep to network (in host)
 	if err = driver.Connect(network, ep); err != nil {
-		return NewError("driver.Connect failed, %v", err)
+		return common.NewError("driver.Connect failed, %v", err)
 	}
 
 	// connect other side of ep to container
 	// configure container's network IP&route with self network namespace
 	if err = configEndpointIpAddressAndRoute(ep, con); err != nil {
-		return NewError("configEndpointIpAddressAndRoute failed, %v", err)
+		return common.NewError("configEndpointIpAddressAndRoute failed, %v", err)
 	}
 
 	// config port mapping between container and host
@@ -378,6 +378,6 @@ func Connect(con *Container) error {
 
 }
 
-func Disconnect(con *Container) error {
+func Disconnect(con *common.Container) error {
 	return nil
 }

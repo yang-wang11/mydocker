@@ -1,13 +1,15 @@
-package util
+package common
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func CheckPidIsRunning(pid int) error {
@@ -27,7 +29,6 @@ func CheckPidIsRunning(pid int) error {
 
 }
 
-// wrapper error
 func NewError(format string, a ...interface{}) error {
 
 	// print the error information
@@ -44,7 +45,6 @@ func NewError(format string, a ...interface{}) error {
 
 }
 
-// check path
 func PathExists(path string) bool {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -63,7 +63,7 @@ func Cmder(name string, outputFlag bool, envs []string, arg ...string) bool {
 	cmd := exec.Command(name, arg...)
 
 	// set cmd parameter
-	cmd.Stdin  = os.Stdin
+	cmd.Stdin = os.Stdin
 	if outputFlag {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -82,5 +82,30 @@ func Cmder(name string, outputFlag bool, envs []string, arg ...string) bool {
 	}
 
 	return result
+}
 
+func GetPersistentLogger(rootFolder string, logFileName string, logLevel log.Level) *log.Logger {
+
+	if !PathExists(rootFolder) {
+		if err := os.MkdirAll(rootFolder, 0644); err != nil {
+			log.Errorf("GetPersistentLogger: failed to create folder %s . %v", rootFolder, err)
+			return nil
+		}
+	}
+
+	if logFileName == "" {
+		logFileName = "logger.log"
+	}
+
+	ContainerRuntimeLog := path.Join(rootFolder, logFileName)
+	logger, err := os.OpenFile(ContainerRuntimeLog, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		log.Errorf("GetPersistentLogger: failed to open file: %v\n", err)
+	}
+
+	return &log.Logger{
+		Out:       io.MultiWriter(logger, os.Stdout),
+		Level:     logLevel,
+		Formatter: &log.JSONFormatter{},
+	}
 }

@@ -8,19 +8,18 @@ type Subsystem interface {
 	Remove(path string) error
 }
 
-type subSysType string ;
+type subSysType string
 
 const (
-	SUBSYSCPU    subSysType = "cpu";
-	SUBSYSCPUSET subSysType = "cpuset";
-	SUBSYSMEMORY subSysType = "memory";
+	SUBSYSCPU    subSysType = "cpu"
+	SUBSYSCPUSET subSysType = "cpuset"
+	SUBSYSMEMORY subSysType = "memory"
 )
-
 
 var (
 	SubsystemsIns = []Subsystem{
 		&CpusetSubSystem{},
 		&MemorySubSystem{},
 		&CpuSubSystem{},
-	}
+  }
 )

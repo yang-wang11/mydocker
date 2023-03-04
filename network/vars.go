@@ -1,18 +1,18 @@
 package network
 
 import (
-	. "docker/mydocker/util"
+	"github.com/yang-wang11/mydocker/common"
 	"os"
 	"path"
 	"path/filepath"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
-	defIPAMPath    = RootDir + "/network/ipam/"
+	defIPAMPath    = common.RootDir + "/network/ipam/"
 	defIPAMConf    = defIPAMPath + "subnet.json"
-	defNetworkPath = RootDir + "/network/network/"
+	defNetworkPath = common.RootDir + "/network/network/"
 )
 
 var (
@@ -31,7 +31,7 @@ func Initbridge() {
 	Drivers[bridgeDrive.Name()] = bridgeDrive
 
 	// make sure default network exist
-	if !PathExists(defNetworkPath) {
+	if !common.PathExists(defNetworkPath) {
 		if err := os.MkdirAll(defNetworkPath, os.ModeDir); err != nil {
 			log.Errorf("create folder %s failed, %v", defNetworkPath, err)
 		}
@@ -39,7 +39,7 @@ func Initbridge() {
 
 	// init ipam module
 	IpAllocator = NewIPAM()
-	if !PathExists(IpAllocator.SubnetPath) {
+	if !common.PathExists(IpAllocator.SubnetPath) {
 		IpAllocator.init()
 	}
 
@@ -73,14 +73,14 @@ func Initbridge() {
 	reloadNetwork()
 
 	// if default bridge network is not exist, generate it
-	if _, ok := Networks[DefNetworkName]; !ok {
-		err := CreateNetwork(string(DefDriveType), DefNetworkSubnet, DefNetworkName)
+	if _, ok := Networks[common.DefNetworkName]; !ok {
+		err := CreateNetwork(string(common.DefDriveType), common.DefNetworkSubnet, common.DefNetworkName)
 		if err != nil {
-			log.Errorf("init default network %s, %+v", DefNetworkName, err)
+			log.Errorf("init default network %s, %+v", common.DefNetworkName, err)
 		}
 		reloadNetwork()
 	}
 
-	log.Debugf("init default network %s successfully. networks: %v", DefNetworkName, Networks)
+	log.Debugf("init default network %s successfully. networks: %v", common.DefNetworkName, Networks)
 
 }

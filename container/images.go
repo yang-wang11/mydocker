@@ -2,7 +2,7 @@ package container
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
@@ -13,7 +13,7 @@ func ListImages(output bool) []string {
 	var ims []string
 
 	// list the files from images folder
-	images, err := ioutil.ReadDir(ImageBaseFolder);
+	images, err := ioutil.ReadDir(ImageBaseFolder)
 	if err != nil {
 		log.Errorf("list images folder failed.")
 		return ims
@@ -27,10 +27,9 @@ func ListImages(output bool) []string {
 		}
 	}
 
-  return ims
+	return ims
 
 }
-
 
 func CheckImage(imageName string) bool {
 
@@ -61,12 +60,11 @@ func RemoveImages(imageName string) bool {
 
 	imagePath := path.Join(ImageBaseFolder, imageName)
 
-	if err := os.Remove(imagePath); err != nil {
+	if err := os.RemoveAll(imagePath); err != nil {
 		log.Errorf("delete image %s failed, %v", imageName, err)
 		return false
 	} else {
 		log.Debugf("delete image %s successfully", imageName)
 		return true
 	}
-
 }

@@ -1,8 +1,8 @@
 package container
 
 import (
-	. "docker/mydocker/util"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/yang-wang11/mydocker/common"
 	"strconv"
 	"syscall"
 )
@@ -12,7 +12,7 @@ func StopContainer(containerName string) {
 	con := GetContinerInfoByName(containerName)
 
 	// get pid from config file
-	ConPid, err := strconv.Atoi(con.Pid);
+	ConPid, err := strconv.Atoi(con.Pid)
 	if err != nil {
 		log.Errorf("pid %s illegal", ConPid)
 		return
@@ -24,8 +24,8 @@ func StopContainer(containerName string) {
 		log.Errorf("parse pid %s to integer failed", con.Pid)
 	}
 	// process already stopped
-	if err := CheckPidIsRunning(childPid); err != nil {
-		UpdateContainerStatus(&con, ContainerStopped)
+	if err := common.CheckPidIsRunning(childPid); err != nil {
+		UpdateContainerStatus(&con, common.ContainerStopped)
 		return
 	}
 
@@ -35,7 +35,6 @@ func StopContainer(containerName string) {
 		return
 	}
 
-	UpdateContainerStatus(&con, ContainerStopped)
+	UpdateContainerStatus(&con, common.ContainerStopped)
 	log.Debugf("kill pid %d successfully", ConPid)
-
 }

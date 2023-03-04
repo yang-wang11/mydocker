@@ -13,6 +13,6 @@ clean_bridge:
 	brctl delbr mybridge
 	ip link set testbridge down
 	brctl delbr testbridge
-	rm -rf /root/mydockerspace/network 
+	rm -rf /root/mydockerspace/network
 
 

@@ -1,6 +1,6 @@
 
 # Introduction
-this project is imitate docker technical. that include four core linux function. and pass test in CentOS7.
+This project imitates docker technical, which includes four core functions, and it has already passed the test in CentOS7.
 
 - [x] namespace
 
@@ -10,35 +10,19 @@ this project is imitate docker technical. that include four core linux function.
 
 - [x] network
 
-# how to use 
+# Preparation 
 
-make sure go environment is ready, and already install gcc.
-after that all done, build this project to a binary called "mydocker" like project name.
+Make sure the go environment is ready, and already installed gcc.
 
-# support feature
+# Support feature
 
 ## overview
 
 ![commands](/res/commands.jpg)
 
-## image
-
-currently only support two base image named busybox and nginx by default. the commands of image include delete and list.
-
-## container
-
-the core parts of this project. 
-
-
-
-## network
-
-supported.
+It only supports two built-in images `busybox`, and `nginx` as default. The commands of the image include delete and list.
 
 
 # TBD
 
 * overlay network 
-
-# reference
-[how to write a docker](https://github.com/xianlubird/mydocker)

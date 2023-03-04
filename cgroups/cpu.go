@@ -2,15 +2,15 @@ package cgroups
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
-	log "github.com/Sirupsen/logrus"
 )
 
-type CpuSubSystem struct{
-	CPUShare string
+type CpuSubSystem struct {
+	CPUShare         string
 	SubsysCgroupPath string
 }
 
@@ -33,7 +33,7 @@ func (s *CpuSubSystem) Set(cgroupPath string, res interface{}) error {
 			s.CPUShare = cpuShare
 			log.Debugf("Set: cgroup cpushare %s setup successfully. ", cpuShare)
 		}
-	}  else {
+	} else {
 		log.Debugf("Set: cgroup cpushare ignored!! ")
 	}
 

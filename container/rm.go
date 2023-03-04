@@ -1,10 +1,10 @@
 package container
 
 import (
-	"docker/mydocker/network"
-	. "docker/mydocker/util"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/yang-wang11/mydocker/common"
+	"github.com/yang-wang11/mydocker/network"
 	"net"
 	"os"
 	"path"
@@ -16,7 +16,7 @@ func DeleteContainer(containerName string, delAll bool) {
 
 	if containerName != "" {
 		deleteContainer(containerName)
-	} else if delAll{
+	} else if delAll {
 		for _, conName := range ListContainers(false) {
 			deleteContainer(conName)
 		}
@@ -24,7 +24,7 @@ func DeleteContainer(containerName string, delAll bool) {
 
 }
 
-func deleteContainer(containerName string){
+func deleteContainer(containerName string) {
 
 	// delete persistent folder
 	con := GetContinerInfoByName(containerName)
@@ -35,7 +35,7 @@ func deleteContainer(containerName string){
 	delContainerRuntime(containerName)
 
 	// release ip
-	ip, cidr, err := net.ParseCIDR(con.IP+"/24")
+	ip, cidr, err := net.ParseCIDR(con.IP + "/24")
 	if err != nil {
 		log.Errorf("parse ip %s failed", con.IP)
 	}
@@ -48,22 +48,22 @@ func deleteContainer(containerName string){
 
 	// release DNAT rule
 	for _, portmap := range con.PortMapping {
-		 portArray := strings.Split(portmap, ":")
-		 hostPort, containerPort := portArray[0], portArray[1]
-		 iptableDNAT := fmt.Sprintf("-t nat -D PREROUTING -p tcp --dport %s -j DNAT --to-destination %s:%s",  hostPort, con.IP, containerPort)
-		 if !Cmder("iptables", true, nil, strings.Split(iptableDNAT, " ")...) {
-			 log.Errorf("release DNAT rule of container %s failed", con.Id)
-		 }
+		portArray := strings.Split(portmap, ":")
+		hostPort, containerPort := portArray[0], portArray[1]
+		iptableDNAT := fmt.Sprintf("-t nat -D PREROUTING -p tcp --dport %s -j DNAT --to-destination %s:%s", hostPort, con.IP, containerPort)
+		if !common.Cmder("iptables", true, nil, strings.Split(iptableDNAT, " ")...) {
+			log.Errorf("release DNAT rule of container %s failed", con.Id)
+		}
 	}
 
 	log.Debugf("Container %s deleted. ", containerName)
 
 }
 
-func delContainerRuntime(containerName string){
+func delContainerRuntime(containerName string) {
 
 	ContainerRuntimeFullPath := path.Join(ContainerRuntimeBaseFolder, containerName)
-	if PathExists(ContainerRuntimeFullPath) {
+	if common.PathExists(ContainerRuntimeFullPath) {
 		if err := os.RemoveAll(ContainerRuntimeFullPath); err != nil {
 			log.Errorf("Container %s runtime delete failed. %v", containerName, err)
 			return
